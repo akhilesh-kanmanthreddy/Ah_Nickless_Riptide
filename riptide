@@ -1,0 +1,195 @@
+#include <DallasTemperature.h>
+#include <LiquidCrystal.h>
+
+//var declaration
+int flowPin = 2;    //This is the input pin on the Arduino
+double flowRate;    //This is the value we intend to calculate.
+volatile int count; //This integer needs to be set as volatile to ensure it updates correctly during the interrupt process.
+LiquidCrystal lcd = LiquidCrystal(9, 3, 7, 6, 5, 4);
+int sensor = A3;
+int UV;
+
+void Flow()
+{
+  count++; //Every time this function is called, increment "count" by 1
+}
+
+const int rain_analog_pin = A2;
+
+#define ONE_WIRE_BUS 11
+#define ONE_WIRE_BUS_TWO 12
+
+OneWire oneWire(ONE_WIRE_BUS);
+OneWire oneWire2(ONE_WIRE_BUS_TWO);
+
+DallasTemperature sensors(&oneWire);
+DallasTemperature sensors2(&oneWire2);
+
+void setup() {
+  // put your setup code here, to run once:
+  lcd.begin(16, 2);
+  pinMode(flowPin, INPUT);           //Sets the pin as an input
+  pinMode(sensor, INPUT);
+  pinMode(rain_analog_pin, INPUT);
+  attachInterrupt(0, Flow, RISING);  //Configures interrupt 0 (pin 2 on the Arduino Mega 2560 Board) to run the function "Flow"
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  //LOOP CODE FOR FLOW SENSOR
+  count = 0;      // Reset the counter so we start counting from 0 again
+  interrupts();   //Enables interrupts on the Arduino
+  delay (1000);   //Wait 1 second
+  noInterrupts(); //Disable the interrupts on the Arduino
+
+
+
+  //LOOP CODE FOR UV
+
+  int UVIndex = 0;
+  int sensorValue;
+  delay(4000);
+  lcd.clear();
+  sensorValue = analogRead(sensor);
+  int voltage = (sensorValue * (5.0 / 1023.0)) * 1000; //Voltage in milliVolts
+  if ((voltage >= 696 && voltage <= 1170) || voltage >= 696) {
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("UV Index");
+    delay(1000);
+    lcd.setCursor(0, 1);
+    lcd.print("GO TO SHADE AREA”);
+    delay(5000);
+
+  else {
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.print("UV Index");
+    delay(1000);
+    lcd.setCursor(0, 1);
+    lcd.print("LOW UV SAFE");
+    delay(5000);
+  }
+
+  //LOOP CODE FOR TEMPERATURE
+  sensors.requestTemperatures();
+  sensors2.requestTemperatures();
+  delay(5000);
+
+
+//starts by clearing the screen displaying “Land Temp” and converts the command given to celsius and then displays it
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Land Temp: ");
+  double temp1 = (sensors.getTempFByIndex(0) − 32) × 5/9
+  lcd.print(temp1);
+  lcd.print(" ");
+  lcd.print("C");
+
+
+  lcd.setCursor(0, 1);
+  lcd.print("Water Temp: ");
+  double temp2 = (sensors.getTempFByIndex(0) − 32) × 5/9
+  lcd.print(temp2);
+  lcd.print(" ");
+  lcd.print("C");
+
+
+
+  lcd.print("    ");
+  delay(500);
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+  lcd.print("Land Temp: ");
+  double temp1 = (sensors.getTempFByIndex(0) − 32) × 5/9
+  lcd.print(temp1);
+  lcd.print(" ");
+  lcd.print("C");
+
+
+  lcd.setCursor(0, 1);
+  lcd.print("Water Temp: ");
+  double temp2 = (sensors.getTempFByIndex(0) − 32) × 5/9
+  lcd.print(temp2);
+  lcd.print(" ");
+  lcd.print("C");
+
+
+
+//if statements that turn off and on the light
+
+  if (sensors.getTempFByIndex(0) >= 75) {
+    digitalWrite(10, HIGH);
+    delay(1000);
+    digitalWrite(10, LOW);
+  }
+
+  if (sensors2.getTempFByIndex(0) >= 75) {
+    digitalWrite(10, HIGH);
+    delay(1000);
+    digitalWrite(10, LOW);
+  }
+
+  //LOOP CODE FOR RAIN SENSOR
+  delay(3000);
+//reads information from given analog pin
+  sensorValue = analogRead(rain_analog_pin);
+  if (sensorValue <= 800) {
+    delay(1000);
+    lcd.setCursor(0, 0);
+    lcd.clear();
+    lcd.print("Rain Radar");
+    lcd.setCursor(0, 1);
+    lcd.print("There is rain");
+    delay(1000);
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.clear();
+    lcd.print("Rain Radar");
+    lcd.setCursor(0, 1);
+    lcd.print("There is no rain");
+    delay(1000);
+  }
+
+//above code uses that data, and uses the same process as in the uv and temperature.
+
+  if (sensorValue < 1000) {
+    digitalWrite(10, HIGH);
+    delay(1000);
+    digitalWrite(10, LOW);
+
+  }
+  //Start the math
+  flowRate = (count * 2.25);        //Take counted pulses in the last second and multiply by 2.25mL
+  flowRate = flowRate * 60;         //Convert seconds to minutes, giving you mL / Minute
+  flowRate = flowRate / 1000;       //Convert mL to Liters, giving you Liters / Minute
+
+  if (flowRate > 1) {
+    lcd.setCursor(0, 0);
+    lcd.print("GET OUT OF WATER!");
+    delay(5000);
+    lcd.setCursor(0, 2);
+    lcd.print("GET OUT OF WATER!");
+    delay(5000);
+    lcd.setCursor(0, 0);
+    lcd.print("GET OUT OF WATER!");
+    delay(5000);
+    lcd.setCursor(0, 2);
+    lcd.print("GET OUT OF WATER!");
+    delay(5000);
+
+  } else {
+    delay(1000);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Rip Current");
+    lcd.setCursor(0, 2);
+    lcd.print("It is safe");
+    delay(1000);
+
+  }
+  if (flowRate > 1) {
+    digitalWrite(10, HIGH);
+    delay(1000);
